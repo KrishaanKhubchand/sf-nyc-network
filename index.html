@@ -1,31 +1,42 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SF + NYC network</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css"></head><body><div class="wrap">
+<link rel="stylesheet" href="style.css"></head><body><div class="wrap" style="max-width:880px">
 <div class="nav"><a class="on" href="index.html">Overview</a><a href="list.html?src=shortlist" id="slnav">♥ Shortlist</a></div>
 <h1>SF + NYC network</h1>
-<div class="sub">People in 6 X lists who say they’re in San Francisco or New York · click any number to open that slice</div>
-<div class="card scroll-x"><table class="mx" id="mx"><tr><td class="l">Loading…</td></tr></table></div>
+<div class="sub" id="sub">Loading…</div>
+<div class="bar" id="flt"></div>
+<div class="card scroll-x"><table class="rw-t" id="tb"></table></div>
 <div class="note" id="note"></div>
 </div>
 <script src="app.js"></script>
 <script>
-(async()=>{
-  const [D,H]=await Promise.all([loadData(),loadHearts()]);
-  document.getElementById('slnav').textContent=`♥ Shortlist (${H.size})`;
-  const P=D.people.filter(p=>p.f<MEGA);
-  const cnt=(key,c,r)=>P.filter(p=>p.c===c&&p.r===r&&inSrc(p,key)).length;
-  const sep=r=>r==='founders'?'sep':'';
-  const link=(key,c,r,n)=>`<a href="list.html?src=${key}&city=${c}&role=${r}">${fmt(n)}</a>`;
-  let h='<tr><th class="l" rowspan="2" style="vertical-align:bottom">List</th><th class="city sep" colspan="3">San Francisco</th><th class="city sep" colspan="3">New York</th></tr><tr>'+['SF','NYC'].flatMap(c=>ROLES.map(r=>`<th class="${sep(r)}">${r[0].toUpperCase()+r.slice(1)}</th>`)).join('')+'</tr>';
-  for(const l of D.lists){
-    const rel=l.rel==='following'?'follows':'followers of';
-    h+=`<tr><td class="l"><div class="who"><b>${SHORT[l.key]}</b><span>${rel} · ${l.label}</span></div></td>`+['SF','NYC'].flatMap(c=>ROLES.map(r=>`<td class="${sep(r)}">${link(l.key,c,r,cnt(l.key,c,r))}</td>`)).join('')+'</tr>';
+const S=new URLSearchParams(location.search);
+const st={city:S.get('city')||'all',role:S.get('role')||'all'};
+let D,H,P;
+const cap=s=>s[0].toUpperCase()+s.slice(1);
+function go(o){Object.assign(st,o);const p=new URLSearchParams();if(st.city!=='all')p.set('city',st.city);if(st.role!=='all')p.set('role',st.role);history.replaceState(null,'','index.html'+(p+''?'?'+p:''));render()}
+function render(){
+  const cities=st.city==='all'?['SF','NYC']:[st.city], roles=st.role==='all'?ROLES:[st.role];
+  document.getElementById('flt').innerHTML=`<div class="seg">${['all','SF','NYC'].map(c=>`<a class="${c===st.city?'on':''}" onclick="go({city:'${c}'})">${c==='all'?'All':c}</a>`).join('')}</div><div class="seg">${['all',...ROLES].map(r=>`<a class="${r===st.role?'on':''}" onclick="go({role:'${r}'})">${r==='all'?'All roles':cap(r)}</a>`).join('')}</div>`;
+  const groups=[...D.lists.map(l=>[l.key,SHORT[l.key],(l.rel==='following'?'follows':'followers of')+' · '+l.label]),['all','All 6 lists','deduped'],['multi','In 2+ lists','people several of them know']];
+  let h='<tr><th>List</th><th class="rw-hide">City</th><th class="rw-hide">Role</th><th class="rw-n">People</th><th class="rw-n">2+ lists</th><th class="rw-n">1K–20K</th></tr>', n=0;
+  for(const [key,name,sub] of groups){
+    h+=`<tr class="rw-g"><td colspan="6">${name}<span>${sub}</span></td></tr>`;
+    for(const c of cities) for(const r of roles){
+      const sl=P.filter(p=>p.c===c&&p.r===r&&inSrc(p,key));
+      const href=`list.html?src=${key}&city=${c}&role=${r}`; n++;
+      h+=`<tr class="rw-r" onclick="location.href='${href}'"><td><a href="${href}">${name} · ${c} · ${cap(r)}</a></td><td class="rw-hide"><span class="rw-pill ${c==='SF'?'rw-sf':'rw-ny'}">${c}</span></td><td class="rw-hide">${cap(r)}</td><td class="rw-n">${fmt(sl.length)}</td><td class="rw-n rw-m">${fmt(sl.filter(p=>p.s.length>1).length)}</td><td class="rw-n rw-m">${fmt(sl.filter(p=>p.f>=1000&&p.f<20000).length)}</td></tr>`;
+    }
   }
-  for(const [key,lab] of [['all','All 6 lists, deduped'],['multi','In 2+ lists']])
-    h+=`<tr class="tot"><td class="l">${lab}</td>`+['SF','NYC'].flatMap(c=>ROLES.map(r=>`<td class="${sep(r)}">${link(key,c,r,cnt(key,c,r))}</td>`)).join('')+'</tr>';
-  document.getElementById('mx').innerHTML=h;
+  document.getElementById('tb').innerHTML=h;
+  document.getElementById('sub').textContent=`${n} lists · one row per list, click to open it · 250K+ accounts left out of counts`;
+}
+(async()=>{
+  [D,H]=await Promise.all([loadData(),loadHearts()]);
+  document.getElementById('slnav').textContent=`♥ Shortlist (${H.size})`;
+  P=D.people.filter(p=>p.f<MEGA);
+  render();
   const u=c=>P.filter(p=>p.c===c&&p.r==='unclear').length;
-  const mega=D.people.length-P.length;
-  document.getElementById('note').innerHTML=`Not in the table: people whose bio doesn’t say what they do — <a href="list.html?src=all&city=SF&role=unclear">${fmt(u('SF'))} in SF</a> · <a href="list.html?src=all&city=NYC&role=unclear">${fmt(u('NYC'))} in NYC</a> — and ${mega} mega-accounts over 250K followers (untick “Hide 250K+” on any page).<br>Ziperski’s row is people who <b>follow him</b>; the other five rows are people each person follows. Location and role come from the person’s own X location and bio, so expect some misses.`;
+  document.getElementById('note').innerHTML=`Not in the table: people whose bio doesn’t say what they do — <a href="list.html?src=all&city=SF&role=unclear">${fmt(u('SF'))} in SF</a> · <a href="list.html?src=all&city=NYC&role=unclear">${fmt(u('NYC'))} in NYC</a> — and ${D.people.length-P.length} mega-accounts over 250K followers (untick “Hide 250K+” on any list).<br>Ziperski’s lists are people who <b>follow him</b>; the others are people each person follows. Location and role come from each person’s own X location and bio, so expect some misses.`;
 })();
 </script></body></html>
