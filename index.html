@@ -18,10 +18,10 @@ function go(o){Object.assign(st,o);const p=new URLSearchParams();if(st.city!=='a
 function render(){
   const cities=st.city==='all'?['SF','NYC']:[st.city], roles=st.role==='all'?ROLES:[st.role];
   document.getElementById('flt').innerHTML=`<div class="seg">${['all','SF','NYC'].map(c=>`<a class="${c===st.city?'on':''}" onclick="go({city:'${c}'})">${c==='all'?'All':c}</a>`).join('')}</div><div class="seg">${['all',...ROLES].map(r=>`<a class="${r===st.role?'on':''}" onclick="go({role:'${r}'})">${r==='all'?'All roles':cap(r)}</a>`).join('')}</div>`;
-  const groups=[...D.lists.map(l=>[l.key,SHORT[l.key],(l.rel==='following'?'follows':'followers of')+' · '+l.label]),['all','All 6 lists','deduped'],['multi','In 2+ lists','people several of them know']];
-  let h='<tr><th>List</th><th class="rw-hide">City</th><th class="rw-hide">Role</th><th class="rw-n">People</th><th class="rw-n">2+ lists</th><th class="rw-n">1K–20K</th></tr>', n=0;
+  const groups=[['kfollowing','You follow','@krishkhubchand · pulled Sep 22'],['kfollowers','Your followers','pulled Jul 18'],['kmutual','Mutuals','you follow each other'],...D.lists.map(l=>[l.key,SHORT[l.key],(l.rel==='following'?'follows':'followers of')+' · '+l.label]),['all','All 6 lists','deduped'],['multi','In 2+ lists','people several of them know']];
+  let h='<tr><th>List</th><th class="rw-hide">City</th><th class="rw-hide">Role</th><th class="rw-n">People</th><th class="rw-n" title="In 2+ of the 6 network lists">2+ lists</th><th class="rw-n">1K–20K</th></tr>', n=0;
   for(const [key,name,sub] of groups){
-    h+=`<tr class="rw-g"><td colspan="6">${name}<span>${sub}</span></td></tr>`;
+    h+=`<tr class="rw-g${YOUSRC[key]?' rw-you':''}"><td colspan="6">${name}<span>${sub}</span></td></tr>`;
     for(const c of cities) for(const r of roles){
       const sl=P.filter(p=>p.c===c&&p.r===r&&inSrc(p,key));
       const href=`list.html?src=${key}&city=${c}&role=${r}`; n++;
@@ -37,6 +37,6 @@ function render(){
   P=D.people.filter(p=>p.f<MEGA);
   render();
   const u=c=>P.filter(p=>p.c===c&&p.r==='unclear').length;
-  document.getElementById('note').innerHTML=`Not in the table: people whose bio doesn’t say what they do — <a href="list.html?src=all&city=SF&role=unclear">${fmt(u('SF'))} in SF</a> · <a href="list.html?src=all&city=NYC&role=unclear">${fmt(u('NYC'))} in NYC</a> — and ${D.people.length-P.length} mega-accounts over 250K followers (untick “Hide 250K+” on any list).<br>Ziperski’s lists are people who <b>follow him</b>; the others are people each person follows. Location and role come from each person’s own X location and bio, so expect some misses.`;
+  document.getElementById('note').innerHTML=`Not in the table: people whose bio doesn’t say what they do — <a href="list.html?src=all&city=SF&role=unclear">${fmt(u('SF'))} in SF</a> · <a href="list.html?src=all&city=NYC&role=unclear">${fmt(u('NYC'))} in NYC</a> — and ${D.people.length-P.length} mega-accounts over 250K followers (untick “Hide 250K+” on any list).<br>“2+ lists” counts only the 6 network lists (Suds, Aashay, Zack, Surya, Gokul, Ziperski), not yours. Ziperski’s lists are people who <b>follow him</b>; the others are people each person follows. Your followers were pulled Jul 18, so recent followers are missing. Location and role come from each person’s own X location and bio, so expect some misses.`;
 })();
 </script></body></html>

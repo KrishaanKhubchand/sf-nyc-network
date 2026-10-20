@@ -9,5 +9,9 @@ async function loadHearts(){try{return new Set((await cx('query','hearts:list'))
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt=n=>n.toLocaleString('en-US');
 const k=n=>n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?(n/1e3).toFixed(n>=1e4?0:1)+'K':String(n);
-function srcLabel(lists,key){if(key==='all')return 'All 6 lists';if(key==='multi')return 'In 2+ lists';if(key==='shortlist')return 'Shortlist';const l=lists.find(x=>x.key===key);return SHORT[key]+(l.rel==='following'?' follows':' · followers')}
-function inSrc(p,key){return key==='all'||key==='shortlist'||(key==='multi'?p.s.length>1:p.s.includes(key))}
+const YOUSRC={kfollowing:'You follow',kfollowers:'Your followers',kmutual:'Mutuals'};
+const yy=p=>p.y||[];
+const rel=p=>yy(p).length===2?'mutual':yy(p).includes('kfollowing')?'following':yy(p).includes('kfollowers')?'follower':'none';
+const BADGE={mutual:'<span class="yo-b yo-m">Mutual</span>',following:'<span class="yo-b yo-f">You follow</span>',follower:'<span class="yo-b yo-fb">Follows you</span>',none:''};
+function srcLabel(lists,key){if(YOUSRC[key])return YOUSRC[key];if(key==='all')return 'All 6 lists';if(key==='multi')return 'In 2+ lists';if(key==='shortlist')return 'Shortlist';const l=lists.find(x=>x.key===key);return SHORT[key]+(l.rel==='following'?' follows':' · followers')}
+function inSrc(p,key){if(key==='shortlist')return true;if(key==='kmutual')return yy(p).length===2;if(key==='kfollowing'||key==='kfollowers')return yy(p).includes(key);if(key==='all')return p.s.length>0;return key==='multi'?p.s.length>1:p.s.includes(key)}

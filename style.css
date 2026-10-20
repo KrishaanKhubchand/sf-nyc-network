@@ -54,3 +54,5 @@ label.tog{font-size:12.5px;color:#555;display:flex;align-items:center;gap:6px;wh
 .rw-sf{background:#e9f0ff;color:#2b4fa8}.rw-ny{background:#fdeee6;color:#9a4a1c}
 .rw-m{color:#8a8a85}
 @media (max-width:600px){.rw-hide{display:none}.rw-t td,.rw-t th{padding:9px 6px}.rw-t td:first-child,.rw-t th:first-child{padding-left:12px}.rw-t th{font-size:10px;letter-spacing:0}.rw-t td{font-size:13px}}
+.yo-b{font-size:11.5px;padding:2px 7px;border-radius:20px;font-weight:550}.yo-m{background:#e3f6ea;color:#16703a}.yo-f{background:#eef0ff;color:#3b45a8}.yo-fb{background:#f3eaff;color:#6b3aa8}
+.rw-t tr.rw-you td{background:#f1f6ff}
