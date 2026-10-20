@@ -1,0 +1,71 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SF + NYC network</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css"></head><body><div class="wrap">
+<div class="nav"><a href="index.html">Overview</a><a href="list.html?src=shortlist" id="slnav">♥ Shortlist</a></div>
+<div class="crumb" id="crumb"></div>
+<h1 id="title">Loading…</h1>
+<div class="sub" id="sub"></div>
+<div class="sticky">
+<div class="bar" id="bar1"></div>
+<div class="bar" id="bar2"></div>
+<div class="bar"><input class="q" id="q" placeholder="Search name or bio…"><label class="tog"><input type="checkbox" id="mega"> Hide 250K+</label></div>
+</div>
+<div class="card"><div id="rows"></div><div class="foot" id="foot"></div></div>
+</div>
+<script src="app.js"></script>
+<script>
+const S=new URLSearchParams(location.search);
+const st={src:S.get('src')||'all',city:S.get('city')||'SF',role:S.get('role')||'founders',tier:S.get('tier')||'all',sort:S.get('sort')||'lists',q:S.get('q')||'',mega:S.get('mega')!=='0'};
+if(st.src==='shortlist'){st.city=S.get('city')||'any';st.role=S.get('role')||'any'}
+let D,H;
+const $=id=>document.getElementById(id);
+function url(){const p=new URLSearchParams();for(const k2 of ['src','city','role','tier','sort']) p.set(k2,st[k2]);if(st.q)p.set('q',st.q);if(!st.mega)p.set('mega','0');return 'list.html?'+p}
+function go(o){Object.assign(st,o);history.replaceState(null,'',url());render()}
+function base(){return D.people.filter(p=>inSrc(p,st.src)&&(st.src!=='shortlist'||H.has(p.u.toLowerCase()))&&(st.src==='shortlist'||!st.mega||p.f<MEGA))}
+const cap=s=>s[0].toUpperCase()+s.slice(1);
+function render(){
+  const b=base();
+  const byCity=b.filter(p=>st.city==='any'||p.c===st.city);
+  const byRole=byCity.filter(p=>st.role==='any'||p.r===st.role);
+  const q=st.q.toLowerCase();
+  const bySearch=byRole.filter(p=>!q||(p.n+' '+p.u+' '+p.b+' '+p.l).toLowerCase().includes(q));
+  const T=TIERS.find(t=>t[0]===st.tier)||TIERS[0];
+  const rows=bySearch.filter(p=>p.f>=T[2]&&p.f<T[3]);
+  const SO={lists:(a,b)=>b.s.length-a.s.length||b.f-a.f,desc:(a,b)=>b.f-a.f,asc:(a,b)=>a.f-b.f};
+  rows.sort(SO[st.sort]||SO.lists);
+  const srcL=srcLabel(D.lists,st.src), roleL=st.role==='any'?'Everyone':cap(st.role), cityL=st.city==='any'?'SF + NYC':st.city;
+  document.title=`${srcL} · ${cityL} · ${roleL}`;
+  $('crumb').innerHTML=`<a href="index.html">SF + NYC network</a> › ${srcL} › ${cityL} › ${roleL}`;
+  $('title').textContent=`${srcL} · ${cityL} · ${roleL}`;
+  const single=!['all','multi','shortlist'].includes(st.src);
+  $('sub').textContent=`${fmt(byRole.length)} people`+(single?` · ${fmt(byRole.filter(p=>p.s.length>1).length)} also appear in another list`:'')+(st.src==='all'?` · ${fmt(byRole.filter(p=>p.s.length>=3).length)} are in 3+ lists`:'')+' · everyone’s on the page, just scroll';
+  const roles=st.src==='shortlist'?['any',...ROLES,'unclear']:[...ROLES,'unclear'];
+  const cities=st.src==='shortlist'?['any','SF','NYC']:['SF','NYC'];
+  const rc=r=>byCity.filter(p=>r==='any'||p.r===r).length;
+  const cc=c=>b.filter(p=>(c==='any'||p.c===c)&&(st.role==='any'||p.r===st.role)).length;
+  $('bar1').innerHTML=`<div class="seg">${roles.map(r=>`<a class="${r===st.role?'on':''}" onclick="go({role:'${r}'})">${r==='any'?'Everyone':cap(r)}<span class="c">${fmt(rc(r))}</span></a>`).join('')}</div><div class="seg">${cities.map(c=>`<a class="${c===st.city?'on':''}" onclick="go({city:'${c}'})">${c==='any'?'Both':c}<span class="c">${fmt(cc(c))}</span></a>`).join('')}</div>`;
+  $('bar2').innerHTML=`<span class="lab">Followers</span><div class="seg">${TIERS.map(t=>`<a class="${t[0]===st.tier?'on':''}" onclick="go({tier:'${t[0]}'})">${t[1]}<span class="c">${fmt(bySearch.filter(p=>p.f>=t[2]&&p.f<t[3]).length)}</span></a>`).join('')}</div><span class="lab">Sort</span><div class="seg">${[['lists','Most lists'],['desc','Followers ↓'],['asc','Followers ↑']].map(([a,l])=>`<a class="${a===st.sort?'on':''}" onclick="go({sort:'${a}'})">${l}</a>`).join('')}</div>`;
+  $('rows').innerHTML=rows.length?rows.map(p=>{
+    const others=p.s.filter(s=>s!==st.src);
+    const also=single?(others.length?`<span class="ch also">Also in ${others.length}: ${others.map(s=>SHORT[s]).join(', ')}</span>`:''):`<span class="ch also">In ${p.s.length} list${p.s.length>1?'s':''}: ${p.s.map(s=>SHORT[s]).join(', ')}</span>`;
+    const on=H.has(p.u.toLowerCase());
+    return `<div class="row"><div class="av">${p.i?`<img loading="lazy" src="${esc(p.i)}" onerror="this.remove()">`:''}</div><div style="min-width:0"><div class="nm"><a href="https://x.com/${esc(p.u)}" target="_blank">${esc(p.n)}</a><span>@${esc(p.u)}</span><span class="fcm"> · ${k(p.f)}</span></div><div class="bio">${esc(p.b)}</div><div class="chips">${also}${p.l?`<span class="ch">${esc(p.l)}</span>`:''}${st.src==='shortlist'?`<span class="ch">${p.c} · ${p.r}</span>`:''}</div></div><div class="fc">${fmt(p.f)}<small>followers</small></div><button class="ht ${on?'on':''}" data-u="${esc(p.u)}" onclick="heart(this)">♥</button></div>`}).join(''):'<div class="empty">No one here with these filters.</div>';
+  $('foot').innerHTML=`<span>${fmt(rows.length)} people${st.tier!=='all'?' · '+T[1]+' followers':''}</span><span style="display:flex;gap:8px"><a class="btn2" href="list.html?src=shortlist">♥ ${H.size} shortlisted</a><button class="btn" onclick="copySL()">Copy shortlist</button></span>`;
+  $('slnav').textContent=`♥ Shortlist (${H.size})`;
+  $('mega').checked=st.mega;
+}
+async function heart(el){
+  const u=el.dataset.u.toLowerCase(), was=H.has(u);
+  was?H.delete(u):H.add(u); el.classList.toggle('on',!was);
+  $('slnav').textContent=`♥ Shortlist (${H.size})`;
+  try{await cx('mutation','hearts:toggle',{handle:u})}catch(e){alert('Couldn’t save — try again');was?H.add(u):H.delete(u);el.classList.toggle('on',was)}
+  if(st.src==='shortlist')render();
+}
+function copySL(){
+  const L=D.people.filter(p=>H.has(p.u.toLowerCase())).map(p=>`@${p.u} — ${p.n} — ${p.c} ${p.r} — ${p.f} followers — ${p.b}`);
+  navigator.clipboard.writeText(L.join('\n')).then(()=>alert(`Copied ${L.length} people`));
+}
+let tm;$('q').value=st.q;$('q').oninput=e=>{clearTimeout(tm);tm=setTimeout(()=>go({q:e.target.value}),150)};
+$('mega').onchange=e=>go({mega:e.target.checked});
+(async()=>{[D,H]=await Promise.all([loadData(),loadHearts()]);render()})();
+</script></body></html>
