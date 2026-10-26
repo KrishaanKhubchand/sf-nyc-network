@@ -1,42 +1,59 @@
 <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SF + NYC network</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css"></head><body><div class="wrap" style="max-width:880px">
+<link rel="stylesheet" href="style.css"></head><body><div class="wrap">
 <div class="nav"><a class="on" href="index.html">Overview</a><a href="list.html?src=shortlist" id="slnav">♥ Shortlist</a></div>
 <h1>SF + NYC network</h1>
 <div class="sub" id="sub">Loading…</div>
 <div class="bar" id="flt"></div>
+<div class="ls-sum" id="lssum" style="display:none"></div>
+<div class="bar" id="flt2"></div>
 <div class="card scroll-x"><table class="rw-t" id="tb"></table></div>
 <div class="note" id="note"></div>
 </div>
 <script src="app.js"></script>
 <script>
 const S=new URLSearchParams(location.search);
-const st={city:S.get('city')||'all',role:S.get('role')||'all'};
-let D,H,P;
+const st={city:S.get('city')||'all',role:S.get('role')||'all',status:S.get('status')||'all',group:S.get('group')||localStorage.getItem('sfnyc-group')||'source'};
+let D,H,P,M={};
 const cap=s=>s[0].toUpperCase()+s.slice(1);
-function go(o){Object.assign(st,o);const p=new URLSearchParams();if(st.city!=='all')p.set('city',st.city);if(st.role!=='all')p.set('role',st.role);history.replaceState(null,'','index.html'+(p+''?'?'+p:''));render()}
+function go(o){Object.assign(st,o);localStorage.setItem('sfnyc-group',st.group);const p=new URLSearchParams();for(const [k2,d] of [['city','all'],['role','all'],['status','all'],['group','source']])if(st[k2]!==d)p.set(k2,st[k2]);history.replaceState(null,'','index.html'+(p+''?'?'+p:''));render()}
 function render(){
   const cities=st.city==='all'?['SF','NYC']:[st.city], roles=st.role==='all'?ROLES:[st.role];
   document.getElementById('flt').innerHTML=`<div class="seg">${['all','SF','NYC'].map(c=>`<a class="${c===st.city?'on':''}" onclick="go({city:'${c}'})">${c==='all'?'All':c}</a>`).join('')}</div><div class="seg">${['all',...ROLES].map(r=>`<a class="${r===st.role?'on':''}" onclick="go({role:'${r}'})">${r==='all'?'All roles':cap(r)}</a>`).join('')}</div>`;
-  const groups=[['kfollowing','You follow','@krishkhubchand · pulled Sep 22'],['kfollowers','Your followers','pulled Jul 18'],['kmutual','Mutuals','you follow each other'],...D.lists.map(l=>[l.key,SHORT[l.key],(l.rel==='following'?'follows':'followers of')+' · '+l.label]),['all','All 6 lists','deduped'],['multi','In 2+ lists','people several of them know']];
-  let h='<tr><th>List</th><th class="rw-hide">City</th><th class="rw-hide">Role</th><th class="rw-n">People</th><th class="rw-n" title="In 2+ of the 6 network lists">2+ lists</th><th class="rw-n">1K–20K</th></tr>', n=0;
-  for(const [key,name,sub] of groups){
-    h+=`<tr class="rw-g${YOUSRC[key]?' rw-you':''}"><td colspan="6">${name}<span>${sub}</span></td></tr>`;
-    for(const c of cities) for(const r of roles){
-      const sl=P.filter(p=>p.c===c&&p.r===r&&inSrc(p,key));
-      const href=`list.html?src=${key}&city=${c}&role=${r}`; n++;
-      h+=`<tr class="rw-r" onclick="location.href='${href}'"><td><a href="${href}">${name} · ${c} · ${cap(r)}</a></td><td class="rw-hide"><span class="rw-pill ${c==='SF'?'rw-sf':'rw-ny'}">${c}</span></td><td class="rw-hide">${cap(r)}</td><td class="rw-n">${fmt(sl.length)}</td><td class="rw-n rw-m">${fmt(sl.filter(p=>p.s.length>1).length)}</td><td class="rw-n rw-m">${fmt(sl.filter(p=>p.f>=1000&&p.f<20000).length)}</td></tr>`;
-    }
+  const DS=doneSet(D,M), cnt={todo:0,processing:0,done:0,skipped:0}, rows=[];
+  for(const [key,name,sub] of groupsOf(D)) for(const c of cities) for(const r of roles){
+    const k2=`${key}|${c}|${r}`, s=stOf(M,k2); cnt[s]++;
+    rows.push({k2,key,name,sub,c,r,s});
   }
+  const n=rows.length;
+  const rowHtml=x=>{
+    const sl=P.filter(p=>p.c===x.c&&p.r===x.r&&inSrc(p,x.key)), href=listHref(x.k2), ht=sl.filter(p=>H.has(p.u.toLowerCase())).length;
+    const nw=x.s==='done'?'<span class="rw-m">—</span>':`<span class="ls-new">${fmt(sl.filter(p=>!DS.has(p.u)).length)}</span>`;
+    return `<tr class="rw-r${x.s==='done'||x.s==='skipped'?' ls-dim':''}" onclick="location.href='${href}'"><td><a href="${href}">${x.name} · ${x.c} · ${cap(x.r)}</a></td><td class="rw-hide"><span class="rw-pill ${x.c==='SF'?'rw-sf':'rw-ny'}">${x.c}</span></td><td class="rw-hide">${cap(x.r)}</td><td class="rw-n ls-ph">${fmt(sl.length)}</td><td class="rw-n rw-m rw-hide">${fmt(sl.filter(p=>p.s.length>1).length)}</td><td class="rw-n rw-m rw-hide">${fmt(sl.filter(p=>p.f>=1000&&p.f<20000).length)}</td><td class="rw-n">${nw}</td><td class="rw-n rw-hide">${ht?`<span class="ls-ht">♥ ${ht}</span>`:'<span class="rw-m">·</span>'}</td><td class="ls-c">${lsPill(x.k2,x.s)}</td></tr>`};
+  const vis=rows.filter(x=>st.status==='all'||x.s===st.status);
+  let h='<tr><th>List</th><th class="rw-hide">City</th><th class="rw-hide">Role</th><th class="rw-n ls-ph">People</th><th class="rw-n rw-hide" title="In 2+ of the 6 network lists">2+ lists</th><th class="rw-n rw-hide">1K–20K</th><th class="rw-n" title="People not in any list you’ve marked Done">New</th><th class="rw-n rw-hide" title="Hearted people in this list">♥</th><th class="rw-n">Status</th></tr>';
+  if(st.group==='status'){
+    for(const s of STO){const g=vis.filter(x=>x.s===s);if(!g.length)continue;
+      h+=`<tr class="rw-g"><td colspan="9"><span class="ls-p ls-${s}" style="margin-left:0;cursor:default">${s==='done'?'✓ ':''}${STL[s]}</span><span>${g.length} list${g.length>1?'s':''}</span></td></tr>`+g.map(rowHtml).join('')}
+  } else {
+    for(const [key,name,sub] of groupsOf(D)){const g=vis.filter(x=>x.key===key);if(!g.length)continue;
+      h+=`<tr class="rw-g${YOUSRC[key]?' rw-you':''}"><td colspan="9">${name}<span>${sub}</span></td></tr>`+g.map(rowHtml).join('')}
+  }
+  if(!vis.length)h+=`<tr><td colspan="9" class="empty">No ${STL[st.status].toLowerCase()} lists here.</td></tr>`;
   document.getElementById('tb').innerHTML=h;
-  document.getElementById('sub').textContent=`${n} lists · one row per list, click to open it · 250K+ accounts left out of counts`;
+  document.getElementById('sub').textContent=`${n} lists · one row per list, click to open it · tap a status to change it · 250K+ accounts left out of counts`;
+  const pc=x=>(100*cnt[x]/n).toFixed(2)+'%', scope=[st.city==='all'?'':st.city,st.role==='all'?'':st.role].filter(Boolean).join(' ');
+  const sm=document.getElementById('lssum');sm.style.display='';
+  sm.innerHTML=`<div class="ls-bar"><span style="width:${pc('done')};background:#2f9e5b"></span><span style="width:${pc('processing')};background:#e9b44c"></span><span style="width:${pc('skipped')};background:#cfcfca"></span></div><div class="ls-l"><b>${cnt.done} of ${n} ${scope?scope+' ':''}lists done</b> · ${cnt.processing} processing · ${cnt.skipped} skipped · ${cnt.todo} to do</div>`;
+  document.getElementById('flt2').innerHTML=`<span class="lab">Status</span><div class="seg">${[['all','All',n],...STO.map(s=>[s,STL[s],cnt[s]])].map(([a,l,c])=>`<a class="${a===st.status?'on':''}" onclick="go({status:'${a}'})">${l}<span class="c">${c}</span></a>`).join('')}</div><span class="lab">Group by</span><div class="seg">${[['source','Source'],['status','Status']].map(([a,l])=>`<a class="${a===st.group?'on':''}" onclick="go({group:'${a}'})">${l}</a>`).join('')}</div>`;
 }
+window.lsRender=render;
 (async()=>{
-  [D,H]=await Promise.all([loadData(),loadHearts()]);
+  [D,H,M]=await Promise.all([loadData(),loadHearts(),loadStatus()]);window.LSM=M;
   document.getElementById('slnav').textContent=`♥ Shortlist (${H.size})`;
   P=D.people.filter(p=>p.f<MEGA);
   render();
   const u=c=>P.filter(p=>p.c===c&&p.r==='unclear').length;
-  document.getElementById('note').innerHTML=`Not in the table: people whose bio doesn’t say what they do — <a href="list.html?src=all&city=SF&role=unclear">${fmt(u('SF'))} in SF</a> · <a href="list.html?src=all&city=NYC&role=unclear">${fmt(u('NYC'))} in NYC</a> — and ${D.people.length-P.length} mega-accounts over 250K followers (untick “Hide 250K+” on any list).<br>“2+ lists” counts only the 6 network lists (Suds, Aashay, Zack, Surya, Gokul, Ziperski), not yours. Ziperski’s lists are people who <b>follow him</b>; the others are people each person follows. Your followers were pulled Jul 18, so recent followers are missing. Location and role come from each person’s own X location and bio, so expect some misses.`;
+  document.getElementById('note').innerHTML=`Not in the table: people whose bio doesn’t say what they do — <a href="list.html?src=all&city=SF&role=unclear">${fmt(u('SF'))} in SF</a> · <a href="list.html?src=all&city=NYC&role=unclear">${fmt(u('NYC'))} in NYC</a> — and ${D.people.length-P.length} mega-accounts over 250K followers (untick “Hide 250K+” on any list).<br>“New” = people not in any list you’ve marked Done. Statuses are shared by everyone with the link.<br>“2+ lists” counts only the 6 network lists (Suds, Aashay, Zack, Surya, Gokul, Ziperski), not yours. Ziperski’s lists are people who <b>follow him</b>; the others are people each person follows. Your followers were pulled Jul 18, so recent followers are missing. Location and role come from each person’s own X location and bio, so expect some misses.`;
 })();
 </script></body></html>

@@ -5,26 +5,33 @@
 <div class="crumb" id="crumb"></div>
 <h1 id="title">Loading…</h1>
 <div class="sub" id="sub"></div>
+<div class="bar" id="lsbar" style="display:none"></div>
 <div class="sticky">
 <div class="bar" id="bar1"></div>
 <div class="bar" id="bar0"></div>
 <div class="bar" id="bar2"></div>
-<div class="bar"><input class="q" id="q" placeholder="Search name or bio…"><label class="tog"><input type="checkbox" id="mega"> Hide 250K+</label></div>
+<div class="bar"><input class="q" id="q" placeholder="Search name or bio…"><label class="tog"><input type="checkbox" id="mega"> Hide 250K+</label><label class="tog" id="seenl" style="display:none"><input type="checkbox" id="seen"> <span id="seent">Hide already seen</span></label></div>
 </div>
 <div class="card"><div id="rows"></div><div class="foot" id="foot"></div></div>
+<div class="ls-next" id="lsnext" style="display:none"></div>
 </div>
 <script src="app.js"></script>
 <script>
 const S=new URLSearchParams(location.search);
-const st={src:S.get('src')||'all',city:S.get('city')||'SF',role:S.get('role')||'founders',tier:S.get('tier')||'all',sort:S.get('sort')||'lists',q:S.get('q')||'',mega:S.get('mega')!=='0',you:S.get('you')||'all'};
+const st={src:S.get('src')||'all',city:S.get('city')||'SF',role:S.get('role')||'founders',tier:S.get('tier')||'all',sort:S.get('sort')||'lists',q:S.get('q')||'',mega:S.get('mega')!=='0',you:S.get('you')||'all',seen:S.get('seen')!=='0'};
 if(st.src==='shortlist'){st.city=S.get('city')||'any';st.role=S.get('role')||'any'}
-let D,H;
+let D,H,M={},DS=new Set();
+const LKEY=()=>`${st.src}|${st.city}|${st.role}`;
+const tracked=()=>st.src!=='shortlist'&&st.city!=='any'&&st.role!=='any';
+const hideSeen=()=>tracked()&&st.seen&&DS.size>0;
 const $=id=>document.getElementById(id);
-function url(){const p=new URLSearchParams();for(const k2 of ['src','city','role','tier','sort']) p.set(k2,st[k2]);if(st.you!=='all')p.set('you',st.you);if(st.q)p.set('q',st.q);if(!st.mega)p.set('mega','0');return 'list.html?'+p}
+function url(){const p=new URLSearchParams();for(const k2 of ['src','city','role','tier','sort']) p.set(k2,st[k2]);if(st.you!=='all')p.set('you',st.you);if(st.q)p.set('q',st.q);if(!st.mega)p.set('mega','0');if(!st.seen)p.set('seen','0');return 'list.html?'+p}
 function go(o){Object.assign(st,o);history.replaceState(null,'',url());render()}
-function base(){return D.people.filter(p=>inSrc(p,st.src)&&(st.src!=='shortlist'||H.has(p.u.toLowerCase()))&&(st.src==='shortlist'||!st.mega||p.f<MEGA))}
+function base0(){return D.people.filter(p=>inSrc(p,st.src)&&(st.src!=='shortlist'||H.has(p.u.toLowerCase()))&&(st.src==='shortlist'||!st.mega||p.f<MEGA))}
+function base(){const b=base0();return hideSeen()?b.filter(p=>!DS.has(p.u)):b}
 const cap=s=>s[0].toUpperCase()+s.slice(1);
 function render(){
+  DS=tracked()?doneSet(D,M,LKEY()):new Set();
   const b=base();
   const YOUF={all:p=>true,none:p=>rel(p)==='none',mutual:p=>rel(p)==='mutual',following:p=>yy(p).includes('kfollowing'),follower:p=>yy(p).includes('kfollowers')};
   const b0=b; const byYou0=b0.filter(p=>(st.city==='any'||p.c===st.city)&&(st.role==='any'||p.r===st.role));
@@ -44,6 +51,7 @@ function render(){
   const single=!['all','multi','shortlist','kfollowing','kfollowers','kmutual'].includes(st.src);
   const conn=byYou0.length-youCounts.none;
   $('sub').textContent=`${fmt(byRole.length)} people`+(single?` · ${fmt(byRole.filter(p=>p.s.length>1).length)} also appear in another list`:'')+(st.src==='all'?` · ${fmt(byRole.filter(p=>p.s.length>=3).length)} are in 3+ lists`:'')+(YOUSRC[st.src]?'':` · ${fmt(conn)} already connected to you`)+' · everyone’s on the page, just scroll';
+  lsUI();
   const roles=st.src==='shortlist'?['any',...ROLES,'unclear']:[...ROLES,'unclear'];
   const cities=st.src==='shortlist'?['any','SF','NYC']:['SF','NYC'];
   const rc=r=>byCity.filter(p=>r==='any'||p.r===r).length;
@@ -56,10 +64,27 @@ function render(){
     const also=BADGE[rel(p)]+(single?(others.length?`<span class="ch also">Also in ${others.length}: ${others.map(s=>SHORT[s]).join(', ')}</span>`:''):(p.s.length?`<span class="ch also">In ${p.s.length} list${p.s.length>1?'s':''}: ${p.s.map(s=>SHORT[s]).join(', ')}</span>`:''));
     const on=H.has(p.u.toLowerCase());
     return `<div class="row"><div class="av">${p.i?`<img loading="lazy" src="${esc(p.i)}" onerror="this.remove()">`:''}</div><div style="min-width:0"><div class="nm"><a href="https://x.com/${esc(p.u)}" target="_blank">${esc(p.n)}</a><span>@${esc(p.u)}</span><span class="fcm"> · ${k(p.f)}</span></div><div class="bio">${esc(p.b)}</div><div class="chips">${also}${p.l?`<span class="ch">${esc(p.l)}</span>`:''}${st.src==='shortlist'?`<span class="ch">${p.c} · ${p.r}</span>`:''}</div></div><div class="fc">${fmt(p.f)}<small>followers</small></div><button class="ht ${on?'on':''}" data-u="${esc(p.u)}" onclick="heart(this)">♥</button></div>`}).join(''):'<div class="empty">No one here with these filters.</div>';
-  $('foot').innerHTML=`<span>${fmt(rows.length)} people${st.tier!=='all'?' · '+T[1]+' followers':''}</span><span style="display:flex;gap:8px"><a class="btn2" href="list.html?src=shortlist">♥ ${H.size} shortlisted</a><button class="btn" onclick="copySL()">Copy shortlist</button></span>`;
+  const hid=hideSeen()?base0().filter(p=>DS.has(p.u)&&(st.city==='any'||p.c===st.city)&&(st.role==='any'||p.r===st.role)).length:0;
+  $('foot').innerHTML=`<span>${fmt(rows.length)} people${st.tier!=='all'?' · '+T[1]+' followers':''}${hid?` · ${fmt(hid)} hidden as already seen`:''}</span><span style="display:flex;gap:8px"><a class="btn2" href="list.html?src=shortlist">♥ ${H.size} shortlisted</a><button class="btn" onclick="copySL()">Copy shortlist</button></span>`;
   $('slnav').textContent=`♥ Shortlist (${H.size})`;
   $('mega').checked=st.mega;
 }
+function lsUI(){
+  const on=tracked();
+  for(const id of ['lsbar','lsnext'])$(id).style.display=on?'':'none';
+  $('seenl').style.display=on&&DS.size?'':'none';
+  if(!on)return;
+  const k2=LKEY(), s=stOf(M,k2);
+  const all=base0().filter(p=>p.c===st.city&&p.r===st.role), seen=all.filter(p=>DS.has(p.u)).length;
+  if(DS.size) $('sub').innerHTML=`${fmt(all.length)} people · <b style="color:#2b59c3;font-weight:600">${fmt(all.length-seen)} new to you</b> · ${fmt(seen)} already seen in lists you’ve marked done`+(st.seen?' (hidden)':'');
+  $('seen').checked=st.seen; $('seent').textContent=`Hide ${fmt(seen)} already seen`;
+  $('lsbar').innerHTML=`<span class="lab">Status</span><div class="seg ls-seg">${STO.map(x=>`<a class="${x===s?'on ls-on-'+x:''}" onclick="setSt('${x}')">${x==='done'?'✓ ':''}${STL[x]}</a>`).join('')}</div>`;
+  const nx=nextTodo(D,M,k2,st.city);
+  $('lsnext').innerHTML=nx?`<span>Finished this list? <span class="rw-m">Next to do: <a href="${listHref(nx)}"><b>${listName(D,nx)}</b></a></span></span><span style="display:flex;gap:8px"><button class="btn2" onclick="finish('skipped')">Skip list</button><button class="btn" onclick="finish('done')">✓ Mark done &amp; open next</button></span>`
+    :`<span>${s==='done'?'This list is done.':'Finished this list?'} <span class="rw-m">No other ${st.city} lists left to do.</span></span><span style="display:flex;gap:8px">${s!=='done'?`<button class="btn2" onclick="setSt('done')">✓ Mark done</button>`:''}<a class="btn" href="index.html?city=${st.city}">All done · back to overview</a></span>`;
+}
+async function setSt(s){if(stOf(M,LKEY())===s)return;const p=saveStatus(M,LKEY(),s);render();await p;render()}
+async function finish(s){const k2=LKEY();const nx=nextTodo(D,M,k2,st.city);if(!(await saveStatus(M,k2,s))){render();return}location.href=nx?listHref(nx):`index.html?city=${st.city}`}
 async function heart(el){
   const u=el.dataset.u.toLowerCase(), was=H.has(u);
   was?H.delete(u):H.add(u); el.classList.toggle('on',!was);
@@ -73,5 +98,6 @@ function copySL(){
 }
 let tm;$('q').value=st.q;$('q').oninput=e=>{clearTimeout(tm);tm=setTimeout(()=>go({q:e.target.value}),150)};
 $('mega').onchange=e=>go({mega:e.target.checked});
-(async()=>{[D,H]=await Promise.all([loadData(),loadHearts()]);render()})();
+$('seen').onchange=e=>go({seen:e.target.checked});
+(async()=>{[D,H,M]=await Promise.all([loadData(),loadHearts(),loadStatus()]);window.LSM=M;render()})();
 </script></body></html>
