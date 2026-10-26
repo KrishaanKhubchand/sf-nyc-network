@@ -9,6 +9,8 @@
  */
 
 import type * as hearts from "../hearts.js";
+import type * as listStatus from "../listStatus.js";
+import type * as sfc from "../sfc.js";
 
 import type {
   ApiFromModules,
@@ -18,6 +20,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   hearts: typeof hearts;
+  listStatus: typeof listStatus;
+  sfc: typeof sfc;
 }>;
 
 /**
