@@ -2,7 +2,7 @@
 spec_format_version: "0.1"
 title: "SF + NYC network: list status tracker"
 artifact_type: "prd"
-spec_revision: 1
+spec_revision: 2
 author: "Hermes for Krish"
 created_at: "2026-10-26T00:00:00Z"
 updated_at: "2026-10-26T00:00:00Z"
@@ -13,7 +13,15 @@ custom_sections:
   - id: "reference-patterns"
     label: "Reference patterns (verified)"
     after: "solution"
+  - id: "decisions-taken"
+    label: "Decisions taken"
+    after: "open-questions"
+  - id: "build-notes"
+    label: "Build notes"
+    after: "decisions-taken"
 ---
+
+> Rev 2: Krish said go and asked for grouping by status. Added a Group by (Source | Status) control on the home page; built and shipped.
 
 # Problem
 Krish is working through the lists on sf-nyc-network.vercel.app (one row per list, e.g. "Suds · SF · Investors") to find people for the SF coffee sprint. Nothing on the site records which lists he has already been through, so he has to remember it. The lists also overlap heavily (235 of the 462 people in Suds · SF · Investors are in another list too), so each new list repeats people he has already looked at.
@@ -37,6 +45,7 @@ in:
   - Include a status per list (To do, Processing, Done, Skipped), keyed by source + city + role, with To do as the default for any list that has never been set.
   - Include a Status column on the home page with a pill that opens a small menu of the four statuses; tapping the pill must not open the list.
   - Include one thin progress bar and one summary line under the City/Role filters ("2 of 33 SF lists done · 2 processing · 1 skipped · 28 to do"), counted for whatever City/Role filter is on.
+  - Include a Group by control on the home page (Source, the current layout, or Status, with one header per status in To do, Processing, Done, Skipped order), remembered on the device and in the URL.
   - Include a Status filter row on the home page (All · To do · Processing · Done · Skipped, with counts) that hides non-matching rows and empty group headers.
   - Include a New column on the home page showing how many people in that list are not in any list marked Done.
   - Include a ♥ column on the home page showing how many hearted people are in that list.
@@ -137,3 +146,17 @@ cut:
 3. Should Processing lists also count as "seen"? Default: no, only Done.
 4. Phone: hide People, 2+ lists, 1K–20K and ♥ so Status fits? Default: yes (desktop keeps every column).
 5. Should statuses also cover the "unclear role" lists linked in the note under the table? Default: yes on their list pages, but they stay out of the home table and the bar.
+
+# Decisions taken
+- The four statuses are To do / Processing / Done / Skipped. Setting To do deletes the row, so To do is the default.
+- Opening a list never changes its status.
+- Only Done lists count as "seen". Processing and Skipped don't hide anyone.
+- On phones, People, 2+ lists, 1K–20K and ♥ are hidden; List · New · Status remain.
+- "Unclear role" lists get the status control on their list page. They aren't in the home table, the bar or "next".
+- Group by: Source is the default. The choice is saved in localStorage (`sfnyc-group`) and in the URL (`group=status`).
+
+# Build notes
+- Backend: `convex/listStatus.ts` (`list`, `set` with status/key validation) + `listStatus` table, pushed to groovy-labrador-571 with `npx convex dev --once`. Index added; hearts and sfcPlacements untouched (sfc.ts was also committed, since it was deployed but uncommitted).
+- Frontend: shared helpers at the bottom of `app.js` (groupsOf, listKeys, loadStatus, saveStatus with rollback, doneSet, nextTodo, floating status menu attached to body so the table's overflow can't clip it). `index.html` was rewritten, `list.html` patched, and `ls-*` classes added to `style.css`.
+- QA: `/root/mocks/list-status/qa/qa_status.py <base>`. It refuses to run if statuses already exist, and clears everything it set in a `finally`. Results: 24/24 PASS locally and 24/24 PASS on live https://sf-nyc-network.vercel.app (AC-1 to AC-10, group-by headers/URL/remembered, phone menu inside the screen, no JS errors). Statuses were left empty (0 done) after the run.
+- Known limits: statuses are shared with anyone who has the link (same as hearts). The page doesn't live-update if another device changes a status; reload to see it.
